@@ -21,20 +21,29 @@ public:
 
         m_jsonDoc.Parse(sv.data());
     }
+    auto InvalidJSONObject() const
+    {
+        return ! m_jsonDoc.IsObject();
+    }
     friend
     std::ostream& operator<<(std::ostream& os, JSONParser& parser)
     {
-        parser.m_jsonDoc.Accept(parser.m_writer);
-        const auto* buff = parser.m_stringBuffer.GetString();
-        if (! std::memcmp(buff, "null", sizeof("null")))
+        if (parser.InvalidJSONObject())
         {
+            std::cerr << "JSON object not instantiated correctly.\n";
             return os << "{}";
         }
-        return os << buff;
+        parser.m_jsonDoc.Accept(parser.m_writer);
+        return os << parser.m_stringBuffer.GetString();
     }
     template <typename T>
     auto& operator[](const T& key) const
     {
+        static const rapidjson::Value value{};
+        if (! m_jsonDoc.IsObject())
+        {
+            return value;
+        }
         return m_jsonDoc.FindMember(key)->value;
     }
 private:
@@ -48,9 +57,16 @@ std::ostream& operator<<(std::ostream& os, const rapidjson::Value& value)
 {
     if (! value.IsNull())
     {
-        return os << value.Get<const char*>();
+        if (value.IsString())
+        {
+            return os << value.Get<const char*>();
+        }
+        else if (value.IsNumber())
+        {
+            return os << value.Get<uint64_t>();
+        }
     }
-    return os << "\"\"";
+    return os << R"("")";
 }
 
 #endif
